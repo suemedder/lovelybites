@@ -47,6 +47,7 @@ tr.sub td { color: var(--muted); }
 .tabs button { padding: 8px 14px; border: 1px solid var(--line); background: #fff; border-radius: 6px; font: inherit; cursor: pointer; }
 .tabs button[aria-selected=true] { background: var(--brand); color: #fff; border-color: var(--brand); }
 .tabs button:disabled { opacity: .5; cursor: not-allowed; }
+button.link { background: none; border: 0; color: var(--brand); text-decoration: underline; cursor: pointer; font: inherit; padding: 8px; }
 button.action { padding: 8px 14px; border: 0; background: var(--brand); color: #fff; border-radius: 6px; font: inherit; cursor: pointer; }
 .paper { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 28px 32px; }
 .paper h2 { font-size: 24px; margin-bottom: 2px; }

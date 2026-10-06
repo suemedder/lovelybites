@@ -17,11 +17,20 @@
 
   <section id="loader" class="card no-print">
     <h2>1. Load the prices</h2>
-    <p>Choose the <strong>lovelybites folder</strong> (the one with <code>menu-prices.csv</code> and <code>public-data.json</code> in it). The tool reads them fresh every time, so if you edit the CSV, just load the folder again.</p>
-    <p><input type="file" id="folderInput" webkitdirectory aria-label="Choose the lovelybites folder"></p>
-    <details>
-      <summary>Folder picker not working? Pick the two files instead</summary>
-      <p>Select both files at once (hold Ctrl or Cmd).</p>
+    <p id="whyText">The prices live in <code>menu-prices.csv</code> and the Jersey figures in <code>public-data.json</code>. A page opened by double-click isn't allowed to read other files by itself, so it has to be shown the <strong>lovelybites folder</strong> once.</p>
+    <div id="rememberBox" hidden>
+      <p>
+        <button type="button" class="action" id="pickFolderBtn">Choose the lovelybites folder</button>
+        <button type="button" class="action" id="reconnectBtn" hidden></button>
+        <button type="button" class="link" id="forgetBtn" hidden>Forget this folder</button>
+      </p>
+      <p class="hint">After the first time this browser remembers the folder, so the prices load by themselves. If you edit the CSV while this page is open, it re-reads it when you come back to the page.</p>
+    </div>
+    <details id="plainPicker">
+      <summary>Other browsers, or the folder picker isn't working</summary>
+      <p>Pick the folder (this has to be done each time you open the tool):</p>
+      <p><input type="file" id="folderInput" webkitdirectory aria-label="Choose the lovelybites folder"></p>
+      <p>Or select both files at once (hold Ctrl or Cmd):</p>
       <input type="file" id="fileInput" multiple accept=".csv,.json" aria-label="Choose menu-prices.csv and public-data.json">
     </details>
     <div id="loadStatus" role="status"></div>

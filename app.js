@@ -5,7 +5,7 @@
   'use strict';
 
   var $ = function (id) { return document.getElementById(id); };
-  var state = { data: null, result: null, ack: false, quoteNo: null, tab: 'internal' };
+  var state = { data: null, result: null, ack: false, quoteNo: null, tab: 'internal', handle: null, pending: null, mods: null };
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -50,32 +50,42 @@
     return found[0] || null;
   }
 
+  function stopWith(html) {
+    $('formSection').hidden = true; $('resultSection').hidden = true; state.data = null;
+    $('loadStatus').innerHTML = html;
+  }
+
+  // The plain folder picker (any browser). Files chosen this way can't be re-read later.
   function handleFiles(fileList) {
     var files = Array.prototype.slice.call(fileList);
+    state.handle = null; $('forgetBtn').hidden = true;
     var csv = pick(files, 'menu-prices.csv'), json = pick(files, 'public-data.json');
-    var status = $('loadStatus');
-    $('formSection').hidden = true; $('resultSection').hidden = true; state.data = null;
     var missing = [];
     if (!csv) missing.push('menu-prices.csv');
     if (!json) missing.push('public-data.json');
     if (missing.length) {
-      status.innerHTML = '<div class="msg bad">Couldn\'t find ' + esc(missing.join(' and ')) + ' in what you chose. Pick the lovelybites folder, or select both files.</div>';
+      stopWith('<div class="msg bad">Couldn\'t find ' + esc(missing.join(' and ')) + ' in what you chose. Pick the lovelybites folder, or select both files.</div>');
       return;
     }
-    Promise.all([readText(csv), readText(json)]).then(function (texts) {
+    loadFiles(csv, json, false, '');
+  }
+
+  // Reads, checks and shows the two files. keepForm = true keeps what's already typed in (used when
+  // the files change while the page is open). A broken file always stops quoting.
+  function loadFiles(csv, json, keepForm, note) {
+    if (!keepForm) { $('formSection').hidden = true; $('resultSection').hidden = true; state.data = null; }
+    return Promise.all([readText(csv), readText(json)]).then(function (texts) {
       var parsed;
       try { parsed = JSON.parse(texts[1].replace(/^﻿/, '')); }
-      catch (e) { status.innerHTML = '<div class="msg bad">public-data.json isn\'t valid JSON: ' + esc(e.message) + '</div>'; return; }
+      catch (e) { stopWith('<div class="msg bad">public-data.json isn\'t valid JSON: ' + esc(e.message) + '</div>'); return false; }
       var built = LBData.build(texts[0], parsed);
-      var html = '';
       if (built.problems.length) {
-        html += '<div class="msg bad"><strong>Can\'t use these files yet.</strong> Fix these and load again:<ul>' +
-          built.problems.map(function (p) { return '<li>' + esc(p) + '</li>'; }).join('') + '</ul></div>';
-        status.innerHTML = html;
-        return;
+        stopWith('<div class="msg bad"><strong>Can\'t use these files yet.</strong> Fix these and load again:<ul>' +
+          built.problems.map(function (p) { return '<li>' + esc(p) + '</li>'; }).join('') + '</ul></div>');
+        return false;
       }
-      var d = built.data;
-      html += '<div class="msg ok">Loaded <strong>menu-prices.csv</strong> (last changed ' + esc(new Date(csv.lastModified).toLocaleString('en-GB')) +
+      var d = built.data, html = '';
+      html += '<div class="msg ok">' + (note ? esc(note) + ' ' : '') + 'Loaded <strong>menu-prices.csv</strong> (last changed ' + esc(new Date(csv.lastModified).toLocaleString('en-GB')) +
         ') and <strong>public-data.json</strong> (last changed ' + esc(new Date(json.lastModified).toLocaleString('en-GB')) + '). ' +
         d.tiers.length + ' menus, ' + d.itemOrder.length + ' add-ons and hire items, 12 parishes.</div>';
       if (d.pub.unconfirmed.length) {
@@ -83,13 +93,125 @@
           d.pub.unconfirmed.map(function (u) { return esc(u.name); }).join(', ') +
           '. Quotes can be worked out, but you\'ll need to tick that you\'ve checked them before a customer quote can be shown.</div>';
       }
-      status.innerHTML = html;
-      state.data = d; state.ack = false;
+      $('loadStatus').innerHTML = html;
+      var savedExtras = keepForm ? captureExtras() : null;
+      state.data = d; state.ack = false;           // new files, so the "I've checked these figures" tick starts again
+      state.mods = { csv: csv.lastModified, json: json.lastModified };
       buildForm();
+      if (savedExtras) restoreExtras(savedExtras);
       $('formSection').hidden = false; $('resultSection').hidden = false;
       refresh();
+      return true;
     }).catch(function (e) {
-      status.innerHTML = '<div class="msg bad">Couldn\'t read the files: ' + esc(e && e.message) + '</div>';
+      stopWith('<div class="msg bad">Couldn\'t read the files: ' + esc(e && e.message) + '</div>');
+      return false;
+    });
+  }
+
+  // ---------- remembering the folder (Chrome and Edge) ----------
+  // A page opened by double-click can't read the CSV beside it on its own: browsers block that for
+  // local files. What they do allow is remembering a folder you've chosen once. Only the folder is
+  // remembered, never the prices: the files are read again every time.
+  var DB_NAME = 'lovelybites', STORE = 'handles', KEY = 'folder';
+  function idb(fn) {
+    return new Promise(function (resolve, reject) {
+      var open = indexedDB.open(DB_NAME, 1);
+      open.onupgradeneeded = function () { open.result.createObjectStore(STORE); };
+      open.onerror = function () { reject(open.error); };
+      open.onsuccess = function () {
+        var req;
+        try { req = fn(open.result.transaction(STORE, 'readwrite').objectStore(STORE)); } catch (e) { reject(e); return; }
+        req.onsuccess = function () { resolve(req.result); };
+        req.onerror = function () { reject(req.error); };
+      };
+    });
+  }
+
+  function readFolder(handle) {
+    function get(name) { return handle.getFileHandle(name).then(function (h) { return h.getFile(); }); }
+    return Promise.all([get('menu-prices.csv'), get('public-data.json')]);
+  }
+
+  function loadFromHandle(handle, keepForm, note) {
+    return readFolder(handle).then(function (f) {
+      state.handle = handle; $('forgetBtn').hidden = false; $('reconnectBtn').hidden = true;
+      return loadFiles(f[0], f[1], keepForm, note || 'From the remembered folder "' + handle.name + '".');
+    }).catch(function (e) {
+      stopWith('<div class="msg bad">Couldn\'t find menu-prices.csv and public-data.json in the folder "' + esc(handle.name) +
+        '" (' + esc(e && e.message) + '). Choose the lovelybites folder again.</div>');
+      return false;
+    });
+  }
+
+  function pickFolder() {
+    window.showDirectoryPicker({ id: 'lovelybites' }).then(function (h) {
+      idb(function (st) { return st.put(h, KEY); }).catch(function () {});   // remembering is a bonus
+      return loadFromHandle(h, false, 'Folder "' + h.name + '" chosen and remembered.');
+    }).catch(function (e) {
+      if (e && e.name !== 'AbortError') stopWith('<div class="msg bad">Couldn\'t open the folder picker: ' + esc(e.message) + '</div>');
+    });
+  }
+
+  function reconnect() {
+    var h = state.pending;
+    h.requestPermission({ mode: 'read' }).then(function (p) {
+      if (p === 'granted') return loadFromHandle(h, false);
+      stopWith('<div class="msg warn">Permission wasn\'t given, so the prices can\'t be read. Choose the folder again or reconnect.</div>');
+    }).catch(function () {});
+  }
+
+  function forget() {
+    idb(function (st) { return st['delete'](KEY); }).catch(function () {});
+    state.handle = null; state.pending = null;
+    $('forgetBtn').hidden = true; $('reconnectBtn').hidden = true;
+    stopWith('<div class="msg warn">Folder forgotten. Choose it again to load the prices.</div>');
+  }
+
+  // If menu-prices.csv or public-data.json is edited while the page is open, pick the change up
+  // as soon as you come back to the page, so a quote is never worked out from old prices.
+  var checking = false;
+  function checkForChanges() {
+    if (!state.handle || !state.data || checking) return;
+    checking = true;
+    readFolder(state.handle).then(function (f) {
+      if (f[0].lastModified !== state.mods.csv || f[1].lastModified !== state.mods.json) {
+        return loadFiles(f[0], f[1], true, 'The price files changed, so they were read again at ' +
+          new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + '.');
+      }
+    }).catch(function () {
+      $('loadStatus').insertAdjacentHTML('afterbegin', '<div class="msg warn">Couldn\'t re-check the price files. Use "Choose the folder" to load them again.</div>');
+    }).then(function () { checking = false; });
+  }
+
+  function startUp() {
+    if (!window.showDirectoryPicker) {
+      $('plainPicker').open = true;
+      $('whyText').textContent += ' This browser can\'t remember the folder, so you\'ll need to choose it each time you open the tool. Chrome or Edge can remember it.';
+      return;
+    }
+    $('rememberBox').hidden = false;
+    idb(function (st) { return st.get(KEY); }).then(function (h) {
+      if (!h) return;
+      return h.queryPermission({ mode: 'read' }).then(function (p) {
+        if (p === 'granted') return loadFromHandle(h, false);
+        state.pending = h;
+        $('reconnectBtn').textContent = 'Reconnect to "' + h.name + '"';
+        $('reconnectBtn').hidden = false; $('forgetBtn').hidden = false;
+      });
+    }).catch(function () {});
+  }
+
+  function captureExtras() {
+    var saved = {};
+    Array.prototype.forEach.call(document.querySelectorAll('.extra-input'), function (el) {
+      saved[el.dataset.key] = el.type === 'checkbox' ? el.checked : el.value;
+    });
+    return saved;
+  }
+  function restoreExtras(saved) {
+    Array.prototype.forEach.call(document.querySelectorAll('.extra-input'), function (el) {
+      if (!(el.dataset.key in saved)) return;
+      if (el.type === 'checkbox') el.checked = saved[el.dataset.key]; else el.value = saved[el.dataset.key];
     });
   }
 
@@ -298,6 +420,11 @@
   }
 
   // ---------- wiring ----------
+  $('pickFolderBtn').addEventListener('click', pickFolder);
+  $('reconnectBtn').addEventListener('click', reconnect);
+  $('forgetBtn').addEventListener('click', forget);
+  window.addEventListener('focus', checkForChanges);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) checkForChanges(); });
   $('folderInput').addEventListener('change', function (e) { handleFiles(e.target.files); });
   $('fileInput').addEventListener('change', function (e) { handleFiles(e.target.files); });
   $('quoteForm').addEventListener('input', refresh);
@@ -312,4 +439,5 @@
   });
   $('tabInternal').addEventListener('click', function () { state.tab = 'internal'; showTab(); });
   $('tabCustomer').addEventListener('click', function () { if (!$('tabCustomer').disabled) { state.tab = 'customer'; showTab(); } });
+  startUp();
 })();

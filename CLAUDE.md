@@ -22,6 +22,6 @@ Lovely Bites is a made-up Jersey event caterer. This repo holds its quoting tool
 - Staff numbers always round **up**: 46 seated guests = 4 servers.
 - Time and a half doesn't stack: a late hour on a bank holiday is still 1.5×.
 - Scripts load with plain `<script>` tags, not modules, because modules don't work when a page is opened from a file.
-- A page opened from a file can't read other files itself, so the user picks the folder each time. Don't cache prices between sessions.
+- A page opened from a file can't read other files itself (browsers block `fetch` and `XMLHttpRequest` on `file://`). Chrome and Edge can remember a chosen folder, so `app.js` stores the folder handle and re-reads the files every time. Other browsers fall back to the plain folder picker. Remember the folder, never the prices: don't cache prices between sessions.
 - After any change to `pricing.js`, run the tests. The worked example in `spec.md` is covered by them.
 - Everything in `business.md` and `menu-prices.csv` is invented. Everything in `public-data.json` is unconfirmed until its status says otherwise.
