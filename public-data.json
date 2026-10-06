@@ -1,0 +1,73 @@
+{
+  "_readme": "Jersey public figures for Lovely Bites pricing. IMPORTANT: every 'status' below is 'NOT_CONFIRMED_FROM_PAGE'. gov.je and jerseylaw.je were blocked from the machine that built this file, so no official page could be opened and read. The values come from web-search summaries that named the gov.je pages listed as source_url. Check each one against its source_url before using it for a real quote. Nothing here was guessed or filled in from memory.",
+  "retrieved_on": "2026-10-06",
+  "minimum_wage": {
+    "status": "NOT_CONFIRMED_FROM_PAGE",
+    "hourly_rate_gbp": 13.59,
+    "applies_from": "2026-04-01",
+    "trainee_year_1_hourly_rate_gbp": 10.5,
+    "caveat": "The search summary of the gov.je announcement called this a PROPOSED rate. A jerseylaw.je page titled 'Employment (Minimum Wage) (Jersey) Amendment Order 2026' (RO-012-2026) also exists, which suggests it was enacted, but its contents could not be read. Confirm the rate and the start date on the official minimum wage page.",
+    "source_url": "https://www.gov.je/Working/EmploymentRelations/Pages/MinimumWage.aspx",
+    "other_urls_seen": [
+      "https://www.gov.je/News/2025/pages/2026proposedminimumwageannounced.aspx",
+      "https://www.jerseylaw.je/laws/enacted/Pages/RO-012-2026.aspx"
+    ],
+    "date_checked": "2026-10-06"
+  },
+  "employers_social_security": {
+    "status": "NOT_CONFIRMED_FROM_PAGE",
+    "year": 2026,
+    "class_1_secondary_rate_up_to_standard_earnings_limit": 0.065,
+    "class_1_secondary_rate_between_sel_and_uel": 0.025,
+    "standard_earnings_limit_monthly_gbp": 6062,
+    "upper_earnings_limit_monthly_gbp": 27632,
+    "minimum_earnings_threshold_monthly_gbp": 618,
+    "caveat": "Reported for 2026 by a search summary. Weekly figures were not given, and the figures could not be checked against the page. Staff on or near minimum wage would normally sit below the standard earnings limit, so 6.5% would apply, but confirm that on the page.",
+    "source_url": "https://www.gov.je/Working/Contributions/Employers/pages/tables.aspx",
+    "other_urls_seen": [
+      "https://www.gov.je/Working/Contributions/Employers/pages/scheduleguide.aspx"
+    ],
+    "date_checked": "2026-10-06"
+  },
+  "gst": {
+    "status": "NOT_CONFIRMED_FROM_PAGE",
+    "standard_rate": 0.05,
+    "caveat": "Reported as 5% on most goods and services supplied in Jersey. Not checked whether catering has any special treatment, and not checked whether Lovely Bites is registered (registration threshold was reported as £300,000 turnover, also unchecked).",
+    "source_url": "https://www.gov.je/TaxesMoney/GST/GSTCustomers/pages/gstquickguide.aspx",
+    "other_urls_seen": [
+      "https://www.gov.je/TaxesMoney/GST/Businesses/Introduction/pages/whattaxed.aspx"
+    ],
+    "date_checked": "2026-10-06"
+  },
+  "bank_holidays": {
+    "status": "NOT_CONFIRMED_FROM_PAGE",
+    "caveat": "Dates as reported by a search summary of the gov.je page. They could not be read on the page itself. The substitute-day dates (Liberation Day in 2026 and 2027, Christmas and Boxing Day) are the ones most worth checking, because the summary's note said weekend holidays move to a weekday and that rule was not checked against the law. 2027 dates may also be marked provisional on the page.",
+    "source_url": "https://www.gov.je/Leisure/Events/WhatsOn/pages/bankholidaydates.aspx",
+    "other_urls_seen": [
+      "https://www.jerseylaw.je/laws/current/Pages/15.560.aspx"
+    ],
+    "date_checked": "2026-10-06",
+    "2026": [
+      {"date": "2026-01-01", "name": "New Year's Day"},
+      {"date": "2026-04-03", "name": "Good Friday"},
+      {"date": "2026-04-06", "name": "Easter Monday"},
+      {"date": "2026-05-04", "name": "Early May bank holiday"},
+      {"date": "2026-05-09", "name": "Liberation Day", "note": "Falls on a Saturday. Whether a weekday substitute applies is NOT CONFIRMED."},
+      {"date": "2026-05-25", "name": "Spring bank holiday"},
+      {"date": "2026-08-31", "name": "Summer bank holiday"},
+      {"date": "2026-12-25", "name": "Christmas Day"},
+      {"date": "2026-12-28", "name": "Boxing Day (substitute day)"}
+    ],
+    "2027": [
+      {"date": "2027-01-01", "name": "New Year's Day"},
+      {"date": "2027-03-26", "name": "Good Friday"},
+      {"date": "2027-03-29", "name": "Easter Monday"},
+      {"date": "2027-05-03", "name": "Early May bank holiday"},
+      {"date": "2027-05-09", "name": "Liberation Day", "note": "Falls on a Sunday. Whether a weekday substitute applies is NOT CONFIRMED."},
+      {"date": "2027-05-31", "name": "Spring bank holiday"},
+      {"date": "2027-08-30", "name": "Summer bank holiday"},
+      {"date": "2027-12-27", "name": "Christmas Day (substitute day)"},
+      {"date": "2027-12-28", "name": "Boxing Day (substitute day)"}
+    ]
+  }
+}
