@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lovely Bites Self-Test</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 13px; font-weight: bold; margin-right: 8px; }
+  .badge.pass { background: var(--good-bg); color: var(--good); }
+  .badge.fail { background: var(--bad-bg); color: var(--bad); }
+  .case h2 { display: flex; align-items: center; flex-wrap: wrap; }
+  .work { font-size: 14px; padding-left: 20px; }
+  .work li { margin: 4px 0; }
+  td.ok { color: var(--good); font-weight: bold; text-align: center; width: 40px; }
+  td.no { color: var(--bad); font-weight: bold; text-align: center; width: 40px; }
+  tr.bad td { background: var(--bad-bg); }
+  .inputs { font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Lovely Bites self-test</h1>
+  <p>Five quotes worked out by hand first. The quoting engine has to get exactly the same answers.</p>
+</header>
+<main>
+  <div id="summary" class="msg"></div>
+  <div id="cases"></div>
+
+  <div class="card">
+    <h2>Are these tests using your current prices?</h2>
+    <p>These five quotes use a frozen copy of the price list (as at 6 October 2026), so they test the <em>rules</em>, not whatever the price list says today. Choose the lovelybites folder to see whether your real files still match that copy.</p>
+    <input type="file" id="folder" webkitdirectory aria-label="Choose the lovelybites folder">
+    <div id="same" role="status"></div>
+  </div>
+</main>
+
+<script src="pricing.js"></script>
+<script src="data.js"></script>
+<script src="selftest-data.js"></script>
+<script src="selftest.js"></script>
+<script>
+(function () {
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function show(kind, v) { return kind === 'money' ? LBSelfTest.pounds(v) : (v === undefined || v === null ? '—' : String(v)); }
+
+  var out = LBSelfTest.run(Pricing, LBData, window.SELFTEST_DATA);
+  var summary = document.getElementById('summary');
+  var cases = document.getElementById('cases');
+
+  if (out.setupProblems.length) {
+    summary.className = 'msg bad';
+    summary.textContent = 'The frozen price copy has problems: ' + out.setupProblems.join(' | ');
+    return;
+  }
+  var failed = out.cases.filter(function (c) { return !c.pass; }).length;
+  summary.className = 'msg ' + (failed ? 'bad' : 'ok');
+  summary.textContent = failed
+    ? failed + ' of ' + out.cases.length + ' test quotes FAILED. Open the red ones below to see which figure is different.'
+    : 'All ' + out.cases.length + ' test quotes PASSED. The engine gives the same answer as the hand working.';
+
+  out.cases.forEach(function (c) {
+    var card = el('div', 'card case');
+    var h = el('h2'); h.appendChild(el('span', 'badge ' + (c.pass ? 'pass' : 'fail'), c.pass ? 'PASS' : 'FAIL'));
+    h.appendChild(document.createTextNode(c.id + '. ' + c.title)); card.appendChild(h);
+    card.appendChild(el('p', 'inputs', c.summary));
+
+    var det = el('details'); if (!c.pass) det.open = true;
+    det.appendChild(el('summary', null, 'Show the hand working'));
+    var ol = el('ol', 'work'); c.working.forEach(function (line) { ol.appendChild(el('li', null, line)); });
+    det.appendChild(ol); card.appendChild(det);
+
+    var table = el('table'); var head = el('thead'); var hr = el('tr');
+    ['', 'What', 'Worked out by hand', 'Engine says'].forEach(function (t, i) { hr.appendChild(el('th', i > 1 ? 'num' : null, t)); });
+    head.appendChild(hr); table.appendChild(head);
+    var body = el('tbody');
+    c.checks.forEach(function (k) {
+      var tr = el('tr', k.pass ? '' : 'bad');
+      tr.appendChild(el('td', k.pass ? 'ok' : 'no', k.pass ? '✓' : '✗'));
+      tr.appendChild(el('td', null, k.label));
+      tr.appendChild(el('td', 'num', show(k.kind, k.expected)));
+      tr.appendChild(el('td', 'num', show(k.kind, k.actual)));
+      body.appendChild(tr);
+    });
+    table.appendChild(body);
+    var det2 = el('details'); det2.open = !c.pass;
+    det2.appendChild(el('summary', null, 'Show every figure compared (' + c.checks.length + ')'));
+    det2.appendChild(table); card.appendChild(det2);
+    cases.appendChild(card);
+  });
+
+  function norm(s) { return s.replace(/^﻿/, '').replace(/\r\n/g, '\n').trim(); }
+  document.getElementById('folder').addEventListener('change', function (e) {
+    var files = Array.prototype.slice.call(e.target.files), box = document.getElementById('same');
+    var find = function (n) { return files.filter(function (f) { return f.name === n; })[0]; };
+    var csv = find('menu-prices.csv'), json = find('public-data.json');
+    if (!csv || !json) { box.innerHTML = ''; box.appendChild(el('div', 'msg bad', 'Couldn\'t find both files in that folder.')); return; }
+    Promise.all([csv.text(), json.text()]).then(function (t) {
+      var csvSame = norm(t[0]) === norm(window.SELFTEST_DATA.csv), jsonSame;
+      try { jsonSame = JSON.stringify(JSON.parse(norm(t[1]))) === JSON.stringify(window.SELFTEST_DATA.json); } catch (err) { jsonSame = false; }
+      box.innerHTML = '';
+      if (csvSame && jsonSame) box.appendChild(el('div', 'msg ok', 'Your menu-prices.csv and public-data.json match the frozen copy, so these tests are using your current figures.'));
+      else box.appendChild(el('div', 'msg warn',
+        'Your ' + [csvSame ? '' : 'menu-prices.csv', jsonSame ? '' : 'public-data.json'].filter(Boolean).join(' and ') +
+        ' has changed since the frozen copy was taken. That\'s fine: the five tests above still check the rules. But the hand answers are for the old figures, so don\'t expect them to match quotes made with the new ones.'));
+    });
+  });
+})();
+</script>
+</body>
+</html>

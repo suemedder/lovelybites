@@ -23,5 +23,7 @@ Lovely Bites is a made-up Jersey event caterer. This repo holds its quoting tool
 - Time and a half doesn't stack: a late hour on a bank holiday is still 1.5×.
 - Scripts load with plain `<script>` tags, not modules, because modules don't work when a page is opened from a file.
 - A page opened from a file can't read other files itself (browsers block `fetch` and `XMLHttpRequest` on `file://`). Chrome and Edge can remember a chosen folder, so `app.js` stores the folder handle and re-reads the files every time. Other browsers fall back to the plain folder picker. Remember the folder, never the prices: don't cache prices between sessions.
-- After any change to `pricing.js`, run the tests. The worked example in `spec.md` is covered by them.
+- Two sets of checks use frozen price copies, not the real files: `tests.js` (its own small fixture) and `selftest.html` (`selftest-data.js`, a snapshot of both data files from 6 Oct 2026). Both test the rules, so they don't change when prices are edited. Don't "fix" them to follow a price edit.
+- `selftest.html` holds five quotes worked out by hand (also written up in `test-quotes.md`). If one fails, work out whether the hand working or the engine is wrong before changing either.
+- After any change to `pricing.js`, run `node tests.js` and `node selftest.js`. The worked example in `spec.md` is covered by them.
 - Everything in `business.md` and `menu-prices.csv` is invented. Everything in `public-data.json` is unconfirmed until its status says otherwise.
