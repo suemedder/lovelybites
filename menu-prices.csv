@@ -1,0 +1,48 @@
+section,item,tier,min_guests,max_guests,unit,price_gbp,minimum_charge_gbp,notes
+menu,Classic,Classic,1,49,per head,34.00,,2 courses
+menu,Classic,Classic,50,99,per head,31.00,,2 courses
+menu,Classic,Classic,100,199,per head,28.50,,2 courses
+menu,Classic,Classic,200,,per head,26.50,,2 courses
+menu,Signature,Signature,1,49,per head,52.00,,3 courses
+menu,Signature,Signature,50,99,per head,48.00,,3 courses
+menu,Signature,Signature,100,199,per head,44.50,,3 courses
+menu,Signature,Signature,200,,per head,41.50,,3 courses
+menu,Prestige,Prestige,1,49,per head,82.00,,4 courses + amuse-bouche; tasting included
+menu,Prestige,Prestige,50,99,per head,76.00,,4 courses + amuse-bouche; tasting included
+menu,Prestige,Prestige,100,199,per head,71.00,,4 courses + amuse-bouche; tasting included
+menu,Prestige,Prestige,200,,per head,67.00,,4 courses + amuse-bouche; tasting included
+food_cost,Classic food cost,Classic,,,per head,11.50,,Ingredients and consumables; internal only
+food_cost,Signature food cost,Signature,,,per head,17.75,,Ingredients and consumables; internal only
+food_cost,Prestige food cost,Prestige,,,per head,29.00,,Ingredients and consumables; internal only
+canapes,Canapés (3 per guest),,,,per head,7.50,150.00,Chef's selection
+canapes,Canapés (5 per guest),,,,per head,11.50,200.00,Chef's selection
+canapes,Premium canapés (5 per guest),,,,per head,16.00,300.00,Includes oysters and local crab
+drinks,Arrival drink (Prosecco or soft),,,,per head,6.50,,One glass per guest
+drinks,Wine with meal (half bottle),,,,per head,14.00,,House red/white/rosé
+drinks,Toast drink (Prosecco),,,,per head,5.50,,One glass per guest
+drinks,Soft drinks package,,,,per head,4.50,,Juices and sparkling water through the event
+drinks,Corkage (client's own wine),,,,per bottle,8.00,,Includes glassware and service
+equipment,Round table (seats 10),,,,per item,14.00,70.00,
+equipment,Trestle table (6ft),,,,per item,9.00,45.00,
+equipment,Banqueting chair,,,,per item,3.50,70.00,
+equipment,Chair cover and sash,,,,per item,3.00,60.00,
+equipment,Linen tablecloth,,,,per item,8.50,40.00,
+equipment,Linen napkin,,,,per item,0.85,25.00,
+equipment,Crockery and cutlery set,,,,per head,3.25,60.00,Per place setting
+equipment,Glassware set (3 glasses),,,,per head,1.80,40.00,Per place setting
+equipment,Mobile bar unit,,,,per event,180.00,180.00,
+equipment,Field kitchen (marquee events),,,,per event,450.00,450.00,Ovens and hot cupboards
+equipment,Patio heater,,,,per item,45.00,90.00,Includes gas
+dietary,Dietary surcharge,,,,per head,4.00,,Per guest needing a separate dish (e.g. vegan; gluten-free; allergen-safe)
+travel,St Helier,,,,per event,45.00,,Travel and setup
+travel,St Saviour,,,,per event,35.00,,Travel and setup; home parish
+travel,St Clement,,,,per event,50.00,,Travel and setup
+travel,Grouville,,,,per event,55.00,,Travel and setup
+travel,St Martin,,,,per event,60.00,,Travel and setup
+travel,Trinity,,,,per event,60.00,,Travel and setup
+travel,St John,,,,per event,70.00,,Travel and setup
+travel,St Lawrence,,,,per event,60.00,,Travel and setup
+travel,St Peter,,,,per event,70.00,,Travel and setup
+travel,St Mary,,,,per event,75.00,,Travel and setup
+travel,St Brelade,,,,per event,75.00,,Travel and setup
+travel,St Ouen,,,,per event,85.00,,Travel and setup
