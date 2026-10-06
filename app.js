@@ -5,7 +5,35 @@
   'use strict';
 
   var $ = function (id) { return document.getElementById(id); };
-  var state = { data: null, result: null, ack: false, quoteNo: null, tab: 'internal', handle: null, pending: null, mods: null };
+
+  // The look of the customer quote. Used on screen, when printing (one A4 page) and inside saved files.
+  var SAVED_BASE_CSS = ':root{--ink:#1f2933;--muted:#5f6b76;--line:#d9dee3;--brand:#1f4e5a}' +
+    'body{font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:#f5f3ef;margin:0;padding:16px;line-height:1.4}' +
+    '.paper{max-width:800px;margin:0 auto}';
+  var PAPER_CSS =
+    '.paper{background:#fff;border:1px solid var(--line);border-radius:8px;padding:28px 32px;color:var(--ink);font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.4}' +
+    '.paper h2{margin:0 0 2px;font-size:24px;color:var(--brand)}' +
+    '.paper h3{margin:14px 0 4px;font-size:13px;color:var(--brand)}' +
+    '.paper .sub{color:var(--muted);margin:0 0 12px}' +
+    '.paper .meta{display:grid;grid-template-columns:repeat(4,1fr);gap:8px 16px;margin:12px 0;font-size:13px}' +
+    '.paper .meta b{display:block;font-size:11px;font-weight:normal;color:var(--muted)}' +
+    '.paper .hint{font-size:11px;color:var(--muted);font-weight:normal}' +
+    '.paper table{width:100%;border-collapse:collapse;font-size:13px;margin:4px 0 8px}' +
+    '.paper th,.paper td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}' +
+    '.paper th{color:var(--muted);font-weight:normal;font-size:11px}' +
+    '.paper td.num,.paper th.num{text-align:right}' +
+    '.paper tr.total td{font-weight:bold;border-top:2px solid var(--ink)}' +
+    '.paper tr.sub td{color:var(--muted)}' +
+    '.paper .pick{background:#eef5f6}' +
+    '.paper ul.terms{font-size:12px;color:var(--muted);margin:8px 0 0;padding-left:18px}' +
+    '@media (max-width:600px){.paper{padding:16px}.paper .meta{grid-template-columns:repeat(2,1fr)}}' +
+    '@page{size:A4;margin:12mm}' +
+    '@media print{body{background:#fff;padding:0}.paper{border:0;border-radius:0;padding:0;font-size:11px;max-width:none}' +
+    '.paper h2{font-size:20px}.paper .meta{gap:5px 12px;margin:8px 0;font-size:11px}.paper table{font-size:11px;margin:3px 0 6px}' +
+    '.paper th,.paper td{padding:3px 6px}.paper h3{margin:10px 0 3px}.paper ul.terms{font-size:10px}' +
+    '.paper,.paper table{break-inside:avoid;page-break-inside:avoid}}';
+  var state = { data: null, result: null, ack: false, quoteNo: null, tab: 'internal', handle: null, pending: null, mods: null,
+                options: null, sig: null, customerOk: false, qHandle: null, saved: null, prevTitle: null };
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -184,6 +212,14 @@
   }
 
   function startUp() {
+    var style = document.createElement('style'); style.textContent = PAPER_CSS; document.head.appendChild(style);
+    if (window.showDirectoryPicker) {
+      idb(function (st) { return st.get(KEY_QUOTES); }).then(function (h) {
+        if (h) { state.qHandle = h; $('folderName').textContent = h.name; }
+      }).catch(noop);
+    } else {
+      $('folderLine').textContent = 'This browser can\'t save into a folder, so Save will download the quote and a register line instead. Chrome or Edge can do it properly.';
+    }
     if (!window.showDirectoryPicker) {
       $('plainPicker').open = true;
       $('whyText').textContent += ' This browser can\'t remember the folder, so you\'ll need to choose it each time you open the tool. Chrome or Edge can remember it.';
@@ -287,9 +323,17 @@
     if (!state.data) return;
     var input = readInput();
     var r = Pricing.calculate(input, state.data);
-    state.result = r; state.quoteNo = null;
+    state.result = r;
+    state.options = r.status === 'invalid' ? null : Pricing.compareTiers(input, state.data);
+    // A new quote number is only made when something about the quote has changed.
+    var sig = JSON.stringify([input, $('customerName').value, $('customerContact').value, state.ack, state.mods, $('showOptions').checked]);
+    if (sig !== state.sig) { state.sig = sig; state.quoteNo = null; }
     var customerOk = r.status === 'ok' && (!r.unconfirmed.length || state.ack);
-    $('tabCustomer').disabled = !customerOk;
+    state.customerOk = customerOk;
+    $('tabCustomer').disabled = !customerOk; $('printBtn').disabled = !customerOk; $('saveBtn').disabled = !customerOk;
+    $('actionHint').textContent = customerOk ? '' : r.status === 'ok'
+      ? 'Tick that you\'ve checked the public figures (in the Internal breakdown) to unlock Print and Save.'
+      : 'Print and Save unlock once the quote is OK to send.';
     if (!customerOk && state.tab === 'customer') state.tab = 'internal';
     renderInternal(r);
     renderCustomer(r);
@@ -303,6 +347,10 @@
     $('tabCustomer').setAttribute('aria-selected', String(cust));
   }
 
+  // Only touch the page when the content really changed. A field losing focus fires a "change" event
+  // that re-runs everything; redrawing identical content would swallow the click on a button.
+  function setHtml(el, html) { if (el.lbHtml !== html) { el.innerHTML = html; el.lbHtml = html; } }
+
   function list(items) { return '<ul>' + items.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul>'; }
 
   function renderInternal(r) {
@@ -310,7 +358,7 @@
     if (r.status === 'invalid') {
       h += '<div class="msg warn"><strong>Still to sort out:</strong>' + list(r.errors.map(esc)) + '</div>';
       if (r.warnings.length) h += '<div class="msg warn">' + list(r.warnings.map(esc)) + '</div>';
-      $('internal').innerHTML = h; return;
+      setHtml($('internal'), h); return;
     }
     if (r.status === 'refused') {
       h += '<div class="msg bad"><strong class="big">Refused: this would be below cost plus 25%.</strong><p>' + esc(r.refusal.message) + '</p>';
@@ -333,6 +381,8 @@
       })) + (r.status === 'ok'
         ? '<label class="inline"><input type="checkbox" id="ack"' + (state.ack ? ' checked' : '') + '> I\'ve checked these figures against their source. Allow the customer quote.</label>' : '') + '</div>';
     }
+
+    h += optionsInternal(r);
 
     // Price
     h += '<h3>Price</h3><table><thead><tr><th>Item</th><th class="num">Quantity</th><th class="num">Each</th><th class="num">Amount</th></tr></thead><tbody>';
@@ -374,28 +424,96 @@
     h += '<h3>Where the public figures come from</h3>' + list(state.data.pub.sources.map(function (src) {
       return esc(src.name) + ': <a href="' + esc(src.url) + '" target="_blank" rel="noopener">' + esc(src.url) + '</a>' + (src.dateChecked ? ' (checked ' + esc(src.dateChecked) + ')' : '');
     }));
-    $('internal').innerHTML = h;
-    var ack = $('ack');
-    if (ack) ack.addEventListener('change', function () { state.ack = ack.checked; refresh(); });
+    setHtml($('internal'), h);
   }
 
+  function pad(n, w) { return ('000' + n).slice(-(w || 2)); }
+  function stamp(d) {
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+  }
   function quoteNumber() {
     if (!state.quoteNo) {
-      var n = new Date(), p = function (x) { return ('0' + x).slice(-2); };
-      state.quoteNo = 'LB-' + n.getFullYear() + p(n.getMonth() + 1) + p(n.getDate()) + '-' + p(n.getHours()) + p(n.getMinutes());
+      var n = new Date();
+      state.quoteNo = 'LB-' + n.getFullYear() + pad(n.getMonth() + 1) + pad(n.getDate()) + '-' + pad(n.getHours()) + pad(n.getMinutes());
     }
     return state.quoteNo;
   }
+  function bump(no) {   // LB-20261006-0920 -> ...-B -> ...-C
+    var m = /-([A-Y])$/.exec(no);
+    return m ? no.slice(0, -1) + String.fromCharCode(m[1].charCodeAt(0) + 1) : no + '-B';
+  }
 
-  // The customer quote shows prices only: no costs, margins, floor, staff numbers or wages.
-  function renderCustomer(r) {
-    if (r.status !== 'ok' || (r.unconfirmed.length && !state.ack)) { $('customer').innerHTML = ''; return; }
+  // ---------- Good / Better / Best ----------
+  var LABELS = ['Good', 'Better', 'Best'];
+  function tierLabel(i) { return state.data.tiers.length === 3 ? LABELS[i] : ''; }
+  function tierHeading(o, i) { var l = tierLabel(i); return l ? l + ' · ' + o.tier : o.tier; }
+  function perHead(res) { return res.lines[0].unitPence; }
+
+  // Staff view: all three, with the floor check for each, so you can see why one is unavailable.
+  function optionsInternal(r) {
+    var opts = state.options;
+    if (!opts) return '';
+    var cols = opts.map(function (o, i) {
+      var res = o.result, sel = o.tier === r.input.tier;
+      return { o: o, i: i, res: res, sel: sel, cls: sel ? ' class="pick"' : '' };
+    });
+    function row(label, fn, cls) {
+      return '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + label + '</td>' + cols.map(function (c) {
+        return '<td class="num' + (c.sel ? ' pick' : '') + '">' + (c.res.status === 'invalid' ? '—' : fn(c.res)) + '</td>'; }).join('') + '</tr>';
+    }
+    var h = '<h3>Good, Better, Best</h3><p class="hint">The same event on each menu, with the same discount. Each menu has its own floor check.</p>' +
+      '<table class="options"><thead><tr><th></th>' + cols.map(function (c) {
+        return '<th class="num' + (c.sel ? ' pick' : '') + '">' + esc(tierHeading(c.o, c.i)) + (c.sel ? '<br><span class="hint">quoted</span>' : '') + '</th>'; }).join('') + '</tr></thead><tbody>' +
+      row('What\'s included', function (x) { return '<span class="hint">' + esc(x.band.notes || '') + '</span>'; }) +
+      row('Menu price per head', function (x) { return money(perHead(x)); }) +
+      row('Price before GST', function (x) { return money(x.priceExGstPence); }) +
+      row('GST', function (x) { return money(x.gstPence); }) +
+      row('Total including GST', function (x) { return money(x.totalPence); }, 'total') +
+      row('Deposit (25%)', function (x) { return money(x.depositPence); }) +
+      row('Total cost', function (x) { return money(x.costPence); }, 'sub') +
+      row('Floor (cost plus 25%)', function (x) { return money(x.floorPence); }, 'sub') +
+      row('Room above the floor', function (x) { return money(x.roomPence); }, 'sub') +
+      '<tr><td>Can we quote it?</td>' + cols.map(function (c) {
+        var res = c.res, t;
+        if (res.status === 'ok') t = '<strong style="color:var(--good)">Yes</strong>';
+        else if (res.status === 'refused') t = '<strong style="color:var(--bad)">No: below the floor</strong>';
+        else t = '<span class="hint">' + esc(res.errors.join(' ')) + '</span>';
+        if (!c.sel && res.status === 'ok') t += '<br><button type="button" class="link" data-pick-tier="' + esc(c.o.tier) + '">Quote this one</button>';
+        return '<td class="num' + (c.sel ? ' pick' : '') + '">' + t + '</td>'; }).join('') + '</tr></tbody></table>';
+    return h;
+  }
+
+  // Customer view: prices only, and only the options we can actually offer.
+  function optionsCustomer(r) {
+    if (!$('showOptions').checked || !state.options) return '';
+    var ok = state.options.map(function (o, i) { return { o: o, i: i }; }).filter(function (c) { return c.o.result.status === 'ok'; });
+    if (ok.length < 2) return '';
+    var anyDiscount = ok.some(function (c) { return c.o.result.discountPence > 0; });
+    function row(label, fn, cls) {
+      return '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + label + '</td>' + ok.map(function (c) {
+        return '<td class="num' + (c.o.tier === r.input.tier ? ' pick' : '') + '">' + fn(c.o.result) + '</td>'; }).join('') + '</tr>';
+    }
+    return '<h3>Your options</h3><table class="options"><thead><tr><th></th>' + ok.map(function (c) {
+      var sel = c.o.tier === r.input.tier;
+      return '<th class="num' + (sel ? ' pick' : '') + '">' + esc(tierHeading(c.o, c.i)) + '<br><span class="hint">' + esc(c.o.result.band.notes || '') + '</span>' +
+        (sel ? '<br><strong>This quote</strong>' : '') + '</th>'; }).join('') + '</tr></thead><tbody>' +
+      row('Menu price per head', function (x) { return money(perHead(x)); }) +
+      (anyDiscount ? row('Discount', function (x) { return x.discountPence ? money(-x.discountPence) : '—'; }) : '') +
+      row('Price before GST', function (x) { return money(x.priceExGstPence); }) +
+      row('Total including GST', function (x) { return money(x.totalPence); }, 'total') +
+      row('Deposit (25%)', function (x) { return money(x.depositPence); }) + '</tbody></table>';
+  }
+
+  // ---------- the customer quote (also what gets printed and saved) ----------
+  // Shows prices only: no costs, margins, floor, staff numbers or wages.
+  function paperHtml(r) {
     var i = r.input, name = $('customerName').value.trim(), contact = $('customerContact').value.trim();
     var h = '<div class="paper"><h2>Lovely Bites</h2><p class="sub">Event catering, Jersey</p>' +
       '<div class="meta">' +
       '<div><b>Quote number</b>' + esc(quoteNumber()) + '</div>' +
-      '<div><b>Issued</b>' + esc(longDate(r.issueDate)) + '</div>' +
-      '<div><b>Valid until</b>' + esc(longDate(r.validUntil)) + '</div>' +
+      '<div><b>Date issued</b>' + esc(longDate(r.issueDate)) + '</div>' +
+      '<div><b>Valid for 30 days, until</b>' + esc(longDate(r.validUntil)) + '</div>' +
+      '<div><b>Deposit to confirm (25%)</b>' + money(r.depositPence) + '</div>' +
       '<div><b>Prepared for</b>' + esc(name || '—') + (contact ? '<br>' + esc(contact) : '') + '</div>' +
       '<div><b>Event</b>' + esc(longDate(i.eventDate)) + '<br>' + esc(i.startTime) + ' to ' + esc(i.endTime) + '</div>' +
       '<div><b>Where</b>' + esc(i.parish) + '</div>' +
@@ -412,14 +530,190 @@
       '<tr class="total"><td>Total</td><td class="num">' + money(r.totalPence) + '</td></tr>' +
       '<tr><td>Deposit to confirm your booking (25%)</td><td class="num">' + money(r.depositPence) + '</td></tr>' +
       '<tr><td>Balance</td><td class="num">' + money(r.balancePence) + '</td></tr></tbody></table>' +
-      '<ul><li>This quote is valid for 30 days, until ' + esc(longDate(r.validUntil)) + '.</li>' +
-      '<li>A 25% deposit confirms your booking.</li></ul>' +
-      '<p class="no-print"><button class="action" id="printBtn">Print or save as PDF</button></p></div>';
-    $('customer').innerHTML = h;
-    var pb = $('printBtn'); if (pb) pb.addEventListener('click', function () { window.print(); });
+      optionsCustomer(r) +
+      '<ul class="terms"><li>This quote is valid for 30 days from the date of issue, until ' + esc(longDate(r.validUntil)) + '.</li>' +
+      '<li>A 25% deposit (' + money(r.depositPence) + ') confirms your booking.</li></ul></div>';
+    return h;
+  }
+
+  function renderCustomer(r) {
+    if (r.status !== 'ok' || (r.unconfirmed.length && !state.ack)) { setHtml($('customer'), ''); return; }
+    setHtml($('customer'), paperHtml(r));
+  }
+
+  // Everything the customer quote needs, in one file that opens by double-click and prints on one page.
+  function standaloneHtml(r) {
+    return '<!DOCTYPE html>\n<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
+      '<title>' + esc(quoteNumber()) + '</title><style>' + SAVED_BASE_CSS + PAPER_CSS + '</style></head><body>' + paperHtml(r) + '</body></html>\n';
+  }
+
+  // ---------- Print ----------
+  function setPrintTitle() {   // browsers use the page title as the suggested PDF file name
+    if (state.prevTitle === null) state.prevTitle = document.title;
+    document.title = quoteNumber();
+  }
+  function afterPrint() { if (state.prevTitle !== null) { document.title = state.prevTitle; state.prevTitle = null; } }
+
+  function doPrint() {
+    if (!state.customerOk) return;
+    uniqueNumberFromRegister().then(function () {
+      renderCustomer(state.result); state.tab = 'customer'; showTab(); setPrintTitle(); window.print();
+    });
+  }
+
+  // ---------- Save into a folder, and add a line to quote-register.csv ----------
+  var REGISTER_FILE = 'quote-register.csv', KEY_QUOTES = 'quotesFolder';
+  var noop = function () {};
+
+  function say(kind, html) { $('saveStatus').innerHTML = '<div class="msg ' + kind + '">' + html + '</div>'; }
+
+  function ensureWrite(h) {
+    return h.queryPermission({ mode: 'readwrite' }).then(function (p) {
+      if (p === 'granted') return true;
+      return h.requestPermission({ mode: 'readwrite' }).then(function (p2) { return p2 === 'granted'; });
+    });
+  }
+  function pickQuotesFolder() {
+    return window.showDirectoryPicker({ id: 'lovelybites-quotes', mode: 'readwrite' }).then(function (h) {
+      state.qHandle = h; $('folderName').textContent = h.name;
+      idb(function (st) { return st.put(h, KEY_QUOTES); }).catch(noop);
+      return h;
+    });
+  }
+  function getQuotesFolder() {
+    if (!state.qHandle) return pickQuotesFolder();
+    return ensureWrite(state.qHandle).then(function (ok) { return ok ? state.qHandle : pickQuotesFolder(); });
+  }
+
+  // Reads the register (if there is one). Rejects with .stage = 'layout' if it isn't ours.
+  function readRegister(dir) {
+    return dir.getFileHandle(REGISTER_FILE).then(function (fh) { return fh.getFile().then(readText); }, function (e) {
+      if (e && e.name === 'NotFoundError') return null;
+      throw e;
+    }).then(function (text) {
+      if (text === null) return { exists: false, text: '', numbers: [] };
+      text = text.replace(/^﻿/, '');
+      if (text.trim() === '') return { exists: false, text: '', numbers: [] };
+      var rows = LBData.parseCSV(text);
+      if ((rows[0][0] || '').trim() !== 'quote_number') {
+        var err = new Error('layout'); err.stage = 'layout'; throw err;
+      }
+      return { exists: true, text: text, numbers: rows.slice(1).map(function (r) { return (r[0] || '').trim(); }) };
+    });
+  }
+
+  // If this number is already in the register (e.g. two quotes in the same minute), move to the next one.
+  function makeUnique(numbers) {
+    if (state.saved && state.saved.sig === state.sig) return;   // already saved once: keep its number
+    var no = quoteNumber();
+    while (numbers.indexOf(no) !== -1) no = bump(no);
+    state.quoteNo = no;
+  }
+  function uniqueNumberFromRegister() {
+    if (!state.qHandle) return Promise.resolve();
+    return state.qHandle.queryPermission({ mode: 'readwrite' }).then(function (p) {
+      if (p !== 'granted') return;
+      return readRegister(state.qHandle).then(function (reg) { makeUnique(reg.numbers); });
+    }).catch(noop);
+  }
+
+  function money2(p) { return (p / 100).toFixed(2); }
+  function registerRow(r, no, file) {
+    var i = r.input, idx = state.data.tiers.indexOf(i.tier);
+    var disc = !r.discountPence ? '' : (r.discount.type === 'percent' ? r.discount.value + '%' : '£' + Number(r.discount.value).toFixed(2));
+    return [no, stamp(new Date()), r.issueDate, r.validUntil, $('customerName').value.trim(), $('customerContact').value.trim(),
+      i.eventDate, i.startTime, i.endTime, i.parish, r.guests, i.style, tierLabel(idx), i.tier, i.dietaryGuests || 0, disc,
+      money2(r.priceExGstPence), money2(r.gstPence), money2(r.totalPence), money2(r.depositPence), money2(r.balancePence),
+      r.unconfirmed.length ? 'UNCONFIRMED figures, ticked as checked by staff' : 'confirmed',
+      state.mods ? stamp(new Date(state.mods.csv)) : '', file];
+  }
+
+  function writeFile(dir, name, text) {
+    return dir.getFileHandle(name, { create: true }).then(function (fh) { return fh.createWritable(); }).then(function (w) {
+      return w.write(text).then(function () { return w.close(); });
+    });
+  }
+
+  function appendRegister(dir, reg, row) {
+    var line = LBData.csvLine(row);
+    var out;
+    if (!reg.exists) out = LBData.csvLine(LBData.REGISTER_COLUMNS) + '\r\n' + line + '\r\n';
+    else {
+      var eol = reg.text.indexOf('\r\n') !== -1 ? '\r\n' : '\n';
+      out = reg.text + (/\n$/.test(reg.text) ? '' : eol) + line + eol;
+    }
+    return writeFile(dir, REGISTER_FILE, '﻿' + out);   // BOM so Excel reads accents properly
+  }
+
+  function stageError(stage, e) { var err = e instanceof Error ? e : new Error(String(e)); if (!err.stage) err.stage = stage; return err; }
+
+  function onSave() {
+    if (!state.customerOk) return;
+    var r = state.result, sig = state.sig;
+    if (state.saved && state.saved.sig === sig && state.saved.regDone) {
+      say('ok', 'This quote is already saved as <strong>' + esc(state.saved.no) + '</strong>. Change something to save a new one.'); return;
+    }
+    if (!window.showDirectoryPicker) { saveByDownload(); return; }
+    $('saveBtn').disabled = true; say('warn', 'Saving…');
+    var dir;
+    getQuotesFolder().then(function (d) {
+      dir = d;
+      return readRegister(dir).catch(function (e) { throw stageError('read', e); });
+    }).then(function (reg) {
+      makeUnique(reg.numbers);
+      renderCustomer(r);                                // so the saved page carries this exact number
+      var no = quoteNumber(), file = no + '.html';
+      var rec = (state.saved && state.saved.sig === sig) ? state.saved : (state.saved = { sig: sig, no: no, fileDone: false, regDone: false });
+      var step1 = rec.fileDone ? Promise.resolve() : writeFile(dir, file, standaloneHtml(r)).then(function () { rec.fileDone = true; }, function (e) { throw stageError('file', e); });
+      return step1.then(function () {
+        return appendRegister(dir, reg, registerRow(r, no, file)).then(function () { rec.regDone = true; }, function (e) { throw stageError('register', e); });
+      }).then(function () {
+        say('ok', 'Saved <strong>' + esc(file) + '</strong> in the folder "' + esc(dir.name) + '" and added a line to <strong>' + REGISTER_FILE + '</strong>.');
+      });
+    }).catch(function (e) {
+      if (e && e.name === 'AbortError') { say('warn', 'No folder chosen, so nothing was saved.'); return; }
+      var why = esc((e && e.message) || e);
+      if (e && e.stage === 'layout') say('bad', REGISTER_FILE + ' in that folder doesn\'t start with the usual column headings (quote_number, saved_at, …), so I haven\'t touched it and nothing was saved. Choose a different folder, or rename that file.');
+      else if (e && e.stage === 'register') say('bad', 'The quote file was saved, but <strong>' + REGISTER_FILE + '</strong> couldn\'t be updated (' + why + '). If it\'s open in Excel, close it and press Save again: the line will be added then.');
+      else if (e && e.stage === 'file') say('bad', 'Couldn\'t save the quote file (' + why + '). Nothing was added to the register.');
+      else say('bad', 'Couldn\'t save (' + why + '). Try "Choose a different folder".');
+    }).then(function () { $('saveBtn').disabled = !state.customerOk; });
+  }
+
+  // Firefox and Safari can't write into a chosen folder, so Save downloads the files instead.
+  function download(name, text, type) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: type })); a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  function saveByDownload() {
+    var r = state.result, no = quoteNumber(), file = no + '.html';
+    state.saved = { sig: state.sig, no: no, fileDone: true, regDone: true };
+    download(file, standaloneHtml(r), 'text/html');
+    download('quote-register-line-' + no + '.csv', '﻿' + LBData.csvLine(LBData.REGISTER_COLUMNS) + '\r\n' + LBData.csvLine(registerRow(r, no, file)) + '\r\n', 'text/csv');
+    say('warn', 'This browser can\'t save into a folder, so I\'ve downloaded <strong>' + esc(file) + '</strong> and a one-line CSV. Copy that line (not the heading) into <strong>' + REGISTER_FILE + '</strong>. Chrome or Edge can do all of this for you.');
   }
 
   // ---------- wiring ----------
+  $('printBtn').addEventListener('click', doPrint);
+  $('saveBtn').addEventListener('click', onSave);
+  $('showOptions').addEventListener('change', refresh);
+  $('changeFolderBtn').addEventListener('click', function () {
+    if (!window.showDirectoryPicker) return;
+    pickQuotesFolder().then(function (h) { say('ok', 'Quotes will be saved in "' + esc(h.name) + '".'); }, function (e) { if (e && e.name !== 'AbortError') say('bad', esc(e.message)); });
+  });
+  $('internal').addEventListener('change', function (e) {
+    if (e.target && e.target.id === 'ack') { state.ack = e.target.checked; refresh(); }
+  });
+  $('internal').addEventListener('click', function (e) {
+    var t = e.target && e.target.getAttribute && e.target.getAttribute('data-pick-tier');
+    if (t) { $('tier').value = t; refresh(); }
+  });
+  window.addEventListener('beforeprint', function () {   // Ctrl+P prints the customer quote, not the staff screen
+    if (state.customerOk) { state.tab = 'customer'; renderCustomer(state.result); showTab(); setPrintTitle(); }
+  });
+  window.addEventListener('afterprint', afterPrint);
   $('pickFolderBtn').addEventListener('click', pickFolder);
   $('reconnectBtn').addEventListener('click', reconnect);
   $('forgetBtn').addEventListener('click', forget);

@@ -293,8 +293,19 @@
     return r;
   }
 
+  // Good / Better / Best: the same event, quoted on every menu tier, each with the same discount.
+  // Each tier gets its own floor check, so one tier can be refused while the others are fine.
+  function compareTiers(input, data, userRules) {
+    return data.tiers.map(function (tier) {
+      var o = {};
+      Object.keys(input).forEach(function (k) { o[k] = input[k]; });
+      o.tier = tier;
+      return { tier: tier, result: compute(o, data, userRules) };
+    });
+  }
+
   var api = {
-    RULES: RULES, calculate: calculate, compute: compute,
+    RULES: RULES, calculate: calculate, compute: compute, compareTiers: compareTiers,
     staffNeeded: staffNeeded, findBand: findBand, shiftBreakdown: shiftBreakdown, staffCostPence: staffCostPence,
     roundDiv: roundDiv, ceilDiv: ceilDiv, addDays: addDays, parseISODate: parseISODate, parseTime: parseTime
   };

@@ -83,6 +83,17 @@
   </section>
 
   <section id="resultSection" hidden>
+    <div id="actions" class="card no-print">
+      <div class="actions">
+        <button type="button" class="action" id="printBtn" disabled>Print</button>
+        <button type="button" class="action" id="saveBtn" disabled>Save to folder</button>
+        <label class="inline"><input type="checkbox" id="showOptions" checked> Show Good / Better / Best on the customer quote</label>
+      </div>
+      <p class="hint" id="actionHint"></p>
+      <p class="hint" id="folderLine">Saves into: <strong id="folderName">no folder chosen yet (you'll be asked when you first press Save)</strong>
+        <button type="button" class="link" id="changeFolderBtn">Choose a different folder</button></p>
+      <div id="saveStatus" role="status"></div>
+    </div>
     <div class="tabs no-print" role="tablist">
       <button id="tabInternal" role="tab" aria-selected="true">Internal breakdown</button>
       <button id="tabCustomer" role="tab" aria-selected="false">Customer quote</button>

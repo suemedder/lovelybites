@@ -221,6 +221,38 @@
       var r = q({}); eq(r.depositPence, Pricing.roundDiv(r.totalPence * 25, 100), 'deposit');
     });
 
+    // ----- Good / Better / Best -----
+    test('Good/Better/Best: one result per tier, in menu order, and the chosen tier matches the normal quote', function () {
+      var o = Pricing.compareTiers(base, data);
+      eq(o.map(function (x) { return x.tier; }).join(','), 'Classic,Signature,Prestige', 'tiers');
+      eq(o[1].result.totalPence, q({}).totalPence, 'Signature matches the normal quote');
+      eq(o[1].result.priceExGstPence, 391500, 'Signature price');
+    });
+    test('Good/Better/Best: each tier has its own floor (food cost differs)', function () {
+      var o = Pricing.compareTiers(base, data);
+      eq(o[1].result.floorPence, 324372, 'Signature floor'); eq(o[2].result.floorPence, 436872, 'Prestige floor');
+    });
+    test('Good/Better/Best: with 20% off, Classic and Signature are refused but Prestige is fine', function () {
+      var o = Pricing.compareTiers(q({ discount: { type: 'percent', value: 20 } }).input, data);
+      eq(o[0].result.status, 'refused', 'Classic'); eq(o[1].result.status, 'refused', 'Signature'); eq(o[2].result.status, 'ok', 'Prestige');
+    });
+    test('Good/Better/Best: a tier under the floor at full price is refused, not quoted', function () {
+      var o = Pricing.compareTiers(base, data);   // Classic for 80 seated guests is below cost + 25%
+      eq(o[0].result.status, 'refused', 'Classic'); eq(o[0].result.refusal.reason, 'base', 'reason');
+    });
+
+    // ----- quote-register.csv -----
+    test('Register CSV: commas and quotes are wrapped, plain text is left alone', function () {
+      eq(LBData.csvLine(['a,b', 'say "hi"', 'plain']), '"a,b","say ""hi""",plain');
+    });
+    test('Register CSV: text that could run as a spreadsheet formula gets an apostrophe', function () {
+      eq(LBData.csvCell('=1+1'), "'=1+1", '='); eq(LBData.csvCell('@SUM(A1)'), "'@SUM(A1)", '@');
+      eq(LBData.csvCell('-5'), "'-5", '-'); eq(LBData.csvCell('+44 1534 000000'), "'+44 1534 000000", '+');
+    });
+    test('Register CSV: a blank cell stays blank and the column list has 24 columns', function () {
+      eq(LBData.csvCell(''), '', 'blank'); eq(LBData.REGISTER_COLUMNS.length, 24, 'columns');
+    });
+
     return results;
   }
 

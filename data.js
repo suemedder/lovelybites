@@ -80,7 +80,7 @@
         var min = toInt(get('min_guests')), maxRaw = get('max_guests'), max = maxRaw === '' ? null : toInt(maxRaw);
         if (!tier) { problems.push(where + 'no tier.'); return; }
         if (min === null || (maxRaw !== '' && max === null)) { problems.push(where + 'the guest numbers aren\'t whole numbers.'); return; }
-        (bandsByTier[tier] = bandsByTier[tier] || []).push({ min: min, max: max, pricePence: price, row: rowNo });
+        (bandsByTier[tier] = bandsByTier[tier] || []).push({ min: min, max: max, pricePence: price, notes: get('notes'), row: rowNo });
       } else if (section === 'food_cost') {
         if (!tier) { problems.push(where + 'no tier.'); return; }
         if (tier in data.foodCostPence) problems.push(where + 'food cost for "' + tier + '" appears twice.');
@@ -186,6 +186,21 @@
     return { data: data, problems: problems };
   }
 
-  var api = { parseCSV: parseCSV, build: build, PARISHES: PARISHES };
+  // ---------- quote-register.csv ----------
+  var REGISTER_COLUMNS = ['quote_number', 'saved_at', 'issue_date', 'valid_until', 'customer', 'contact', 'event_date',
+    'start_time', 'end_time', 'parish', 'guests', 'service', 'option', 'menu', 'dietary_guests', 'discount',
+    'price_before_gst', 'gst', 'total_inc_gst', 'deposit_25pc', 'balance', 'public_figures', 'prices_file_modified', 'quote_file'];
+
+  // One CSV cell. Text that starts with = + - @ could run as a formula when the register is opened
+  // in Excel, so it gets a leading apostrophe. Anything with a comma, quote or line break is quoted.
+  function csvCell(v) {
+    var s = String(v == null ? '' : v);
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    if (/[",\r\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+  function csvLine(fields) { return fields.map(csvCell).join(','); }
+
+  var api = { parseCSV: parseCSV, build: build, PARISHES: PARISHES, REGISTER_COLUMNS: REGISTER_COLUMNS, csvCell: csvCell, csvLine: csvLine };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.LBData = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -49,16 +49,10 @@ tr.sub td { color: var(--muted); }
 .tabs button:disabled { opacity: .5; cursor: not-allowed; }
 button.link { background: none; border: 0; color: var(--brand); text-decoration: underline; cursor: pointer; font: inherit; padding: 8px; }
 button.action { padding: 8px 14px; border: 0; background: var(--brand); color: #fff; border-radius: 6px; font: inherit; cursor: pointer; }
-.paper { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 28px 32px; }
-.paper h2 { font-size: 24px; margin-bottom: 2px; }
-.paper .sub { color: var(--muted); margin: 0 0 18px; }
-.paper .meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 20px; margin: 14px 0; font-size: 14px; }
-.paper .meta b { display: block; font-size: 12px; font-weight: normal; color: var(--muted); }
-.paper ul { font-size: 13px; color: var(--muted); }
-@media (max-width: 600px) { .paper { padding: 16px; } }
+table.options th.pick, table.options td.pick { background: #eef5f6; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
 @media print {
   .no-print { display: none !important; }
   body { background: #fff; }
   main { max-width: none; padding: 0; }
-  .paper { border: 0; padding: 0; }
 }
