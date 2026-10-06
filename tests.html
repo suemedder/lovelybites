@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lovely Bites Tests</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  .pass::before { content: "PASS  "; font-weight: bold; color: var(--good); }
+  .fail::before { content: "FAIL  "; font-weight: bold; color: var(--bad); }
+  li { margin: 3px 0; font-size: 14px; list-style: none; }
+  ul { padding-left: 0; }
+  .detail { display: block; margin-left: 48px; color: var(--bad); font-size: 13px; }
+</style>
+</head>
+<body>
+<header><h1>Lovely Bites checks</h1><p>Double-click this page to run them. Green means the rules still do what the spec says.</p></header>
+<main>
+  <div class="card">
+    <h2>Pricing rules</h2>
+    <p>These use their own small set of test prices, so they check the rules, not today's price list.</p>
+    <div id="summary" class="msg"></div>
+    <ul id="results"></ul>
+  </div>
+  <div class="card">
+    <h2>Check your real files</h2>
+    <p>Choose the lovelybites folder to check <code>menu-prices.csv</code> and <code>public-data.json</code> for mistakes (gaps in price bands, missing parishes, bad prices, missing sources).</p>
+    <input type="file" id="folder" webkitdirectory aria-label="Choose the lovelybites folder">
+    <div id="realStatus" role="status"></div>
+  </div>
+</main>
+<script src="pricing.js"></script>
+<script src="data.js"></script>
+<script src="tests.js"></script>
+<script>
+  (function () {
+    var res = LBTests.run(Pricing, LBData);
+    var failed = res.filter(function (r) { return !r.pass; }).length;
+    var s = document.getElementById('summary');
+    s.className = 'msg ' + (failed ? 'bad' : 'ok');
+    s.textContent = failed ? failed + ' of ' + res.length + ' checks FAILED' : 'All ' + res.length + ' checks passed';
+    var ul = document.getElementById('results');
+    res.forEach(function (r) {
+      var li = document.createElement('li');
+      li.className = r.pass ? 'pass' : 'fail';
+      li.textContent = r.name;
+      if (r.detail) { var d = document.createElement('span'); d.className = 'detail'; d.textContent = r.detail; li.appendChild(d); }
+      ul.appendChild(li);
+    });
+
+    document.getElementById('folder').addEventListener('change', function (e) {
+      var files = Array.prototype.slice.call(e.target.files);
+      var find = function (n) { return files.filter(function (f) { return f.name === n; })[0]; };
+      var csv = find('menu-prices.csv'), json = find('public-data.json'), out = document.getElementById('realStatus');
+      if (!csv || !json) { out.innerHTML = '<div class="msg bad">Couldn\'t find both files in that folder.</div>'; return; }
+      Promise.all([csv.text(), json.text()]).then(function (t) {
+        var b;
+        try { b = LBData.build(t[0], JSON.parse(t[1])); } catch (err) { out.innerHTML = '<div class="msg bad"></div>'; out.firstChild.textContent = 'public-data.json isn\'t valid JSON: ' + err.message; return; }
+        if (!b.problems.length) {
+          out.innerHTML = '<div class="msg ok">No problems found in your files.</div>';
+        } else {
+          out.innerHTML = '<div class="msg bad"><strong>Problems found:</strong><ul></ul></div>';
+          var ul2 = out.querySelector('ul');
+          b.problems.forEach(function (p) { var li = document.createElement('li'); li.textContent = p; ul2.appendChild(li); });
+        }
+      });
+    });
+  })();
+</script>
+</body>
+</html>

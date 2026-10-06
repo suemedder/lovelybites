@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lovely Bites Quotes</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="no-print">
+  <h1>Lovely Bites quote tool</h1>
+  <p>Prices come from <code>menu-prices.csv</code>. Jersey figures come from <code>public-data.json</code>. Nothing is typed in by hand.</p>
+</header>
+
+<main>
+
+  <section id="loader" class="card no-print">
+    <h2>1. Load the prices</h2>
+    <p>Choose the <strong>lovelybites folder</strong> (the one with <code>menu-prices.csv</code> and <code>public-data.json</code> in it). The tool reads them fresh every time, so if you edit the CSV, just load the folder again.</p>
+    <p><input type="file" id="folderInput" webkitdirectory aria-label="Choose the lovelybites folder"></p>
+    <details>
+      <summary>Folder picker not working? Pick the two files instead</summary>
+      <p>Select both files at once (hold Ctrl or Cmd).</p>
+      <input type="file" id="fileInput" multiple accept=".csv,.json" aria-label="Choose menu-prices.csv and public-data.json">
+    </details>
+    <div id="loadStatus" role="status"></div>
+  </section>
+
+  <section id="formSection" class="card no-print" hidden>
+    <h2>2. The event</h2>
+    <form id="quoteForm" autocomplete="off" onsubmit="return false">
+      <div class="grid">
+        <label>Customer name <input id="customerName" type="text"></label>
+        <label>Contact (email or phone) <input id="customerContact" type="text"></label>
+        <label>Event date <input id="eventDate" type="date"></label>
+        <label>Quote issued <input id="issueDate" type="date"></label>
+        <label>Event starts <input id="startTime" type="time"></label>
+        <label>Event finishes <input id="endTime" type="time"></label>
+        <label>Parish <select id="parish"></select></label>
+        <label>Number of guests <input id="guests" type="number" min="1" step="1" inputmode="numeric"></label>
+        <label>Menu <select id="tier"></select></label>
+        <label>Guests needing a separate dietary dish <input id="dietaryGuests" type="number" min="0" step="1" inputmode="numeric" value="0"></label>
+      </div>
+
+      <fieldset>
+        <legend>Service</legend>
+        <label class="inline"><input type="radio" name="style" value="seated" checked> Seated (1 server per 15 guests)</label>
+        <label class="inline"><input type="radio" name="style" value="buffet"> Buffet (1 server per 25 guests)</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Discount (comes off the menu price only)</legend>
+        <label class="inline"><input type="radio" name="discType" value="none" checked> None</label>
+        <label class="inline"><input type="radio" name="discType" value="percent"> Percent</label>
+        <label class="inline"><input type="radio" name="discType" value="amount"> Amount in £</label>
+        <input id="discValue" type="number" min="0" step="0.01" inputmode="decimal" aria-label="Discount value" disabled>
+      </fieldset>
+
+      <fieldset>
+        <legend>Add-ons and hire</legend>
+        <div id="extras"></div>
+      </fieldset>
+
+      <details>
+        <summary>Settings (staff setup and clear-down time)</summary>
+        <div class="grid">
+          <label>Setup time per staff member (minutes) <input id="setupMinutes" type="number" min="0" step="5"></label>
+          <label>Clear-down time per staff member (minutes) <input id="clearMinutes" type="number" min="0" step="5"></label>
+        </div>
+        <p class="hint">These are our assumptions (see spec.md), not figures from the price list.</p>
+      </details>
+    </form>
+  </section>
+
+  <section id="resultSection" hidden>
+    <div class="tabs no-print" role="tablist">
+      <button id="tabInternal" role="tab" aria-selected="true">Internal breakdown</button>
+      <button id="tabCustomer" role="tab" aria-selected="false">Customer quote</button>
+    </div>
+    <div id="internal" class="card no-print"></div>
+    <div id="customer" hidden></div>
+  </section>
+
+</main>
+
+<script src="pricing.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
