@@ -62,7 +62,7 @@
 
 ### The rules, worked through
 - **Price break:** use the band the guest number falls in: 1–49, 50–99, 100–199 or 200+. For example, 50 guests is in the 50–99 band, not 1–49.
-- **Servers:** guests ÷ 15 for seated, or guests ÷ 25 for buffet, **always rounded up**
+- **Servers:** guests ÷ 15 for seated, or guests ÷ 25 for buffet, **always rounded up**, even when only just over. For example, 46 seated guests ÷ 15 = 3.07, so **4 servers**, not 3
 - **Chefs:** guests ÷ 40, **always rounded up**, for both seated and buffet
 - **Hours per person:** setup + event + clear-down, but never fewer than **4 hours**
 - **Hourly staff cost:** Jersey minimum wage × (1 + employer's social security rate)
